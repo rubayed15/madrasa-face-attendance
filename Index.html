@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>মাদ্রাসা মুখ শনাক্ত হাজিরা</title>
+  <style>
+    :root { font-family: Arial, "Noto Sans Bengali", sans-serif; color: #17202a; background: #f4f6f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 14px; }
+    .wrap { max-width: 900px; margin: auto; }
+    header { padding: 18px; background: #123c2d; color: white; border-radius: 16px; margin-bottom: 14px; }
+    h1 { font-size: 22px; margin: 0 0 6px; }
+    .sub { opacity: .9; font-size: 14px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    button { border: 0; border-radius: 10px; padding: 11px 14px; font-size: 15px; cursor: pointer; background: #176b4d; color: white; }
+    button.secondary { background: #e1e7e5; color: #173b2f; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .panel { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px #0000000a; margin-bottom: 14px; }
+    .hidden { display: none !important; }
+    label { display: block; font-weight: 600; margin: 10px 0 5px; }
+    input { width: 100%; padding: 11px; border: 1px solid #ccd5d1; border-radius: 9px; font-size: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    video { width: 100%; max-height: 430px; background: #101715; border-radius: 12px; object-fit: cover; transform: scaleX(-1); }
+    .status { padding: 12px; border-radius: 10px; background: #edf3f0; margin-top: 10px; min-height: 44px; line-height: 1.5; }
+    .good { background: #e2f7e8; color: #14532d; }
+    .bad { background: #ffeded; color: #8b1d1d; }
+    .warn { background: #fff4d7; color: #774f00; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .small { color: #53615b; font-size: 13px; line-height: 1.5; }
+    .student { padding: 9px 0; border-bottom: 1px solid #edf0ef; }
+    .pill { display: inline-block; padding: 4px 8px; background: #e6f1ec; border-radius: 20px; font-size: 12px; }
+    @media (max-width: 520px) { body { padding: 9px; } header { padding: 14px; } h1 { font-size: 20px; } .panel { padding: 12px; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>মাদ্রাসা মুখ শনাক্ত হাজিরা</h1>
+    <div class="sub">সকালের হাজিরা • Google Sheets-এ রেকর্ড</div>
+  </header>
+
+  <div class="tabs">
+    <button id="attendanceTab" onclick="showPanel('attendance')">হাজিরা নিন</button>
+    <button class="secondary" id="adminTab" onclick="showPanel('admin')">অ্যাডমিন</button>
+  </div>
+
+  <section class="panel" id="attendancePanel">
+    <h2>সকালের হাজিরা</h2>
+    <p class="small">ক্যামেরার সামনে একজন ছাত্রকে দাঁড়াতে বলুন। মুখ পরিষ্কার দেখা এবং আলো যথেষ্ট থাকা দরকার।</p>
+    <div class="grid">
+      <div>
+        <video id="video" autoplay muted playsinline></video>
+        <div class="row" style="margin-top:9px">
+          <button id="startCameraBtn" onclick="startCamera()">ক্যামেরা চালু</button>
+          <button class="secondary" onclick="stopCamera()">ক্যামেরা বন্ধ</button>
+        </div>
+      </div>
+      <div>
+        <div class="status" id="attendanceStatus">প্রথমে ক্যামেরা চালু করুন।</div>
+        <div class="row" style="margin-top:10px">
+          <button id="scanBtn" onclick="scanAttendance()" disabled>মুখ শনাক্ত করে হাজিরা দিন</button>
+        </div>
+        <p class="small">এই সংস্করণে ছাত্রকে একবারে একজন করে স্ক্যান করুন। একই দিনে দ্বিতীয় হাজিরা বন্ধ থাকবে। এটি পরীক্ষামূলক; বাস্তব বায়োমেট্রিক তথ্য ব্যবহার করবেন না।</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel hidden" id="adminPanel">
+    <h2>অ্যাডমিন প্যানেল</h2>
+    <p class="small">অ্যাডমিন PIN সার্ভারে যাচাই করা হয়। PIN কোডের মধ্যে লেখা নেই; Apps Script Project Settings-এ Script Property হিসেবে সেট করতে হবে।</p>
+    <label for="adminPin">অ্যাডমিন PIN</label>
+    <input id="adminPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="অ্যাডমিন PIN লিখুন">
+    <div class="row" style="margin-top:9px">
+      <button onclick="loginAdmin()">লগইন</button>
+      <button class="secondary" onclick="logoutAdmin()">লগআউট</button>
+    </div>
+    <div class="status" id="adminStatus">লগইন করে ছাত্র নিবন্ধন করুন।</div>
+
+    <div id="registerForm" class="hidden">
+      <h3>নতুন ছাত্র নিবন্ধন</h3>
+      <div class="grid">
+        <div><label for="studentName">ছাত্রের নাম</label><input id="studentName" maxlength="100" placeholder="পূর্ণ নাম"></div>
+        <div><label for="studentRoll">রোল নম্বর</label><input id="studentRoll" maxlength="40" placeholder="যেমন ১২৩"></div>
+        <div><label for="studentClass">শ্রেণি/জামাত</label><input id="studentClass" maxlength="80" placeholder="যেমন হিফজ ২"></div>
+      </div>
+      <p class="small">ছাত্রকে ক্যামেরার সামনে রেখে নিচের বোতামে চাপুন। পরিষ্কার মুখ, সামনে তাকানো এবং ভালো আলো নিশ্চিত করুন।</p>
+      <button id="enrollBtn" onclick="enrollStudent()" disabled>মুখের বৈশিষ্ট্য নিবন্ধন করুন</button>
+      <button class="secondary" onclick="loadStudents()">ছাত্র তালিকা রিফ্রেশ</button>
+      <div id="studentList" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <strong>প্রাথমিক সংস্করণ সম্পর্কে</strong>
+    <p class="small">মুখের descriptor হলো সংবেদনশীল বায়োমেট্রিক তথ্য। প্রকৃত ছাত্রদের তথ্য ব্যবহার করার আগে অভিভাবক/প্রতিষ্ঠানের অনুমতি, অ্যাক্সেস সীমা, ব্যাকআপ এবং তথ্য মুছে ফেলার নীতি ঠিক করুন। মুখ শনাক্তকরণ ভুল করতে পারে; শিক্ষককে সংশোধনের সুযোগ দিন।</p>
+  </section>
+</div>
+
+<script>
+  // Replace this with your Cloudflare Worker URL after deploying worker.js.
+  const API_URL = 'PASTE_CLOUDFLARE_WORKER_URL_HERE';
+
+  async function apiCall(action, payload) {
+    if (!API_URL || API_URL.indexOf('PASTE_') === 0) {
+      throw new Error('প্রথমে index.html-এ API_URL-এর জায়গায় আপনার Cloudflare Worker URL বসান।');
+    }
+    let response;
+    try {
+      response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, payload: payload || {} })
+      });
+    } catch (err) {
+      throw new Error('API সার্ভারে সংযোগ হয়নি। Worker URL ও ALLOWED_ORIGIN পরীক্ষা করুন।');
+    }
+    let result;
+    try { result = await response.json(); }
+    catch (_) { throw new Error('API সার্ভার থেকে JSON উত্তর আসেনি। Worker ও Apps Script deployment পরীক্ষা করুন।'); }
+    if (!response.ok || !result || !result.ok) {
+      throw new Error(result && result.error ? result.error : 'সার্ভারের অনুরোধ ব্যর্থ হয়েছে।');
+    }
+    return result.data;
+  }
+
+  // Use the package's documented browser bundle path, with an alternate CDN.
+  function loadFaceApiLibrary() {
+    if (window.faceapi) return Promise.resolve();
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.js',
+      'https://unpkg.com/face-api.js@0.22.2/dist/face-api.js'
+    ];
+    return new Promise((resolve, reject) => {
+      let index = 0;
+      const tryNext = () => {
+        if (window.faceapi) return resolve();
+        if (index >= sources.length) {
+          return reject(new Error('face-api.js লাইব্রেরি লোড হয়নি। ইন্টারনেট সংযোগ বা CDN অ্যাক্সেস পরীক্ষা করুন।'));
+        }
+        const script = document.createElement('script');
+        script.src = sources[index++];
+        script.onload = () => window.faceapi ? resolve() : tryNext();
+        script.onerror = tryNext;
+        document.head.appendChild(script);
+      };
+      tryNext();
+    });
+  }
+</script>
+<script>
+  // Public model files from the face-api.js weights repository.
+  const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+  let stream = null;
+  let modelsLoaded = false;
+  let adminLoggedIn = false;
+  let lastScanAt = 0;
+
+  function showPanel(which) {
+    document.getElementById('attendancePanel').classList.toggle('hidden', which !== 'attendance');
+    document.getElementById('adminPanel').classList.toggle('hidden', which !== 'admin');
+    document.getElementById('attendanceTab').classList.toggle('secondary', which !== 'attendance');
+    document.getElementById('adminTab').classList.toggle('secondary', which !== 'admin');
+  }
+
+  function setStatus(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  async function loadModels() {
+    if (modelsLoaded) return;
+    setStatus('attendanceStatus', 'মুখ শনাক্তকরণের লাইব্রেরি ও মডেল লোড হচ্ছে…');
+    await loadFaceApiLibrary();
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+    modelsLoaded = true;
+  }
+
+  async function startCamera() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('এই ব্রাউজারে ক্যামেরা API পাওয়া যায়নি। HTTPS লিংক ব্যবহার করুন এবং Chrome-এ পরীক্ষা করুন।');
+      }
+      await loadModels();
+      if (stream) stopCamera();
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      await video.play();
+      document.getElementById('scanBtn').disabled = false;
+      document.getElementById('enrollBtn').disabled = false;
+      setStatus('attendanceStatus', 'ক্যামেরা প্রস্তুত। একজন ছাত্রকে সামনে দাঁড় করান।', 'good');
+    } catch (err) {
+      setStatus('attendanceStatus', 'ক্যামেরা চালু হয়নি: ' + (err.message || err) + ' — সাইটের Camera permission অনুমতি দিন।', 'bad');
+    }
+  }
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    document.getElementById('video').srcObject = null;
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('enrollBtn').disabled = true;
+  }
+
+  async function getDescriptor() {
+    if (!stream || !modelsLoaded) throw new Error('আগে ক্যামেরা চালু করুন।');
+    const video = document.getElementById('video');
+    if (video.readyState < 2) throw new Error('ক্যামেরা এখনো প্রস্তুত নয়।');
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+    if (!result) throw new Error('মুখ শনাক্ত হয়নি। আলো ঠিক করুন, ক্যামেরার দিকে তাকান এবং আবার চেষ্টা করুন।');
+    return Array.from(result.descriptor);
+  }
+
+  async function scanAttendance() {
+    const btn = document.getElementById('scanBtn');
+    if (Date.now() - lastScanAt < 2500) return;
+    lastScanAt = Date.now();
+    btn.disabled = true;
+    setStatus('attendanceStatus', 'মুখ শনাক্ত হচ্ছে…');
+    try {
+      const descriptor = await getDescriptor();
+      const result = await apiCall('markAttendance', { descriptor });
+      if (result.ok) {
+        setStatus('attendanceStatus', result.message + ' নাম: ' + result.student +
+          ' | রোল: ' + result.roll + ' | শ্রেণি: ' + result.className + ' | সময়: ' + result.time, 'good');
+      } else {
+        setStatus('attendanceStatus', result.message, result.code === 'DUPLICATE' ? 'warn' : 'bad');
+      }
+      btn.disabled = false;
+    } catch (err) {
+      setStatus('attendanceStatus', err.message || String(err), 'bad');
+      btn.disabled = false;
+    }
+  }
+
+  function loginAdmin() {
+    const pin = document.getElementById('adminPin').value;
+    apiCall('verifyAdminPin', { pin })
+      .then(ok => {
+        adminLoggedIn = !!ok;
+        if (adminLoggedIn) {
+          setStatus('adminStatus', 'অ্যাডমিন লগইন সফল। ক্যামেরা চালু করে ছাত্র নিবন্ধন করুন।', 'good');
+          document.getElementById('registerForm').classList.remove('hidden');
+          loadStudents();
+        } else {
+          setStatus('adminStatus', 'PIN সঠিক নয়।', 'bad');
+        }
+      })
+      .catch(err => setStatus('adminStatus', err.message || String(err), 'bad'));
+  }
+
+  function logoutAdmin() {
+    adminLoggedIn = false;
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('adminPin').value = '';
+    setStatus('adminStatus', 'লগআউট হয়েছে।', '');
+  }
+
+  async function enrollStudent() {
+    if (!adminLoggedIn) return setStatus('adminStatus', 'আগে অ্যাডমিন লগইন করুন।', 'bad');
+    const name = document.getElementById('studentName').value.trim();
+    const roll = document.getElementById('studentRoll').value.trim();
+    const className = document.getElementById('studentClass').value.trim();
+    if (!name || !roll || !className) return setStatus('adminStatus', 'নাম, রোল ও শ্রেণি পূরণ করুন।', 'bad');
+
+    const btn = document.getElementById('enrollBtn');
+    btn.disabled = true;
+    try {
+      const descriptor = await getDescriptor();
+      const result = await apiCall('adminRegisterStudent', {
+        pin: document.getElementById('adminPin').value,
+        data: { name, roll, className, descriptor }
+      });
+      setStatus('adminStatus', result.message + ' ছাত্র আইডি: ' + result.studentId, 'good');
+      document.getElementById('studentName').value = '';
+      document.getElementById('studentRoll').value = '';
+      loadStudents();
+      btn.disabled = false;
+    } catch (err) {
+      setStatus('adminStatus', err.message || String(err), 'bad');
+      btn.disabled = false;
+    }
+  }
+
+  function loadStudents() {
+    if (!adminLoggedIn) return;
+    apiCall('getAdminStudentList', { pin: document.getElementById('adminPin').value })
+      .then(list => {
+        const holder = document.getElementById('studentList');
+        holder.textContent = '';
+        const title = document.createElement('h3');
+        title.textContent = 'নিবন্ধিত ছাত্র (' + list.length + ')';
+        holder.appendChild(title);
+        list.slice(-100).reverse().forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'student';
+          div.textContent = s.name + ' | রোল: ' + s.roll + ' | শ্রেণি: ' + s.className + ' | ' + s.studentId;
+          holder.appendChild(div);
+        });
+        if (list.length > 100) {
+          const note = document.createElement('p');
+          note.className = 'small';
+          note.textContent = 'এখানে সর্বশেষ ১০০ জন দেখানো হয়েছে।';
+          holder.appendChild(note);
+        }
+      })
+      .catch(err => setStatus('adminStatus', err.message || String(err), 'bad'));
+  }
+</script>
+</body>
+</html>
